@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite + TS</title>
+  </head>
+  <body>
+    <h1>Paywally</h1>
+    <p>A standalone web app with a paywall powered by cashu</p>
+    <div id="pay">
+      <p>Pay 21 sats to get access to repo link</p>
+      <button>Pay</button>
+    </div>
+    <p id="error" />
+    <div id="hidden" />
+    <div id="qrcode" />
+    <script type="module" src="/src/main.ts"></script>
+    <script src="https://unpkg.com/@bitjson/qr-code@1.0.2/dist/qr-code.js"></script>
+  </body>
+</html>
