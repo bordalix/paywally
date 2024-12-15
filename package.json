@@ -14,5 +14,6 @@
   },
   "dependencies": {
     "@cashu/cashu-ts": "^2.1.0"
-  }
+  },
+  "packageManager": "yarn@1.22.22"
 }
