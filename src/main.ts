@@ -1,12 +1,14 @@
 import './style.css'
 import { getInvoice } from './lnurlp.ts'
 import { showPaymentInfo, showError, showHiddenContent } from './show.ts'
-import { CashuMint, CashuWallet, MintQuoteState } from '@cashu/cashu-ts'
+import { CashuMint, CashuWallet, getEncodedTokenV4, MintQuoteState } from '@cashu/cashu-ts'
+import { sendViaNostr } from './nostr.ts'
 
 const mintUrl = 'https://mint.coinos.io'
 const myLnurl = 'bordalix@coinos.io'
 const paySats = 21 // amount to be paid in sats
 const pButton = document.querySelector<HTMLButtonElement>('#pay button')!
+const npubkey = '62cef883863022a4f1d60d54857c9d729650702c9fe227b0988c0b6e36c4bcce'
 
 async function pay() {
   try {
@@ -43,7 +45,17 @@ async function pay() {
       const { send } = await wallet.send(amountToSend, proofs)
       const meltResponse = await wallet.meltProofs(meltQuote, send)
       console.log('meltResponse', meltResponse)
+      // unlock content
       showHiddenContent()
+      // send change token via Nostr
+      sendViaNostr(
+        npubkey,
+        getEncodedTokenV4({
+          proofs: meltResponse.change,
+          mint: mintUrl,
+          memo: 'paywally',
+        })
+      )
     }
   } catch (error) {
     showError(error)

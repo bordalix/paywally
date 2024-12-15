@@ -15,7 +15,7 @@ How it works:
 7. Pools the mint every 5 seconds waiting for the invoice to be paid
 8. When paid, it mints the proofs
 9. Uses the proofs to melt and pay for the first invoice
-10. Receives a change of 2 sats
+10. Receives a change of 2 sats and sends it to me via Nostr
 
 It’s not perfect, the user can inspect the code and:
 
