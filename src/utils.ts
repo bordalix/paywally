@@ -4,9 +4,11 @@ export async function curl(url: string) {
   return await response.json()
 }
 
-export function rot(str: string) {
-  return str
+// to obfuscate content:
+// - change 'https://github.com/bordalix/paywally' with rot('iuuqt;00hjuivc/dpn0cpsebmjy0qbzxbmmz')
+// - change 'https://coinos.io/.well-known/lnurlp/bordalix' with rot('iuuqt;00dpjopt/jp0/xfmm.lopxo0movsmq0cpsebmjy')
+export const rot = (str: string) =>
+  str
     .split('')
     .map((char) => String.fromCharCode(char.charCodeAt(0) - 1))
     .join('')
-}

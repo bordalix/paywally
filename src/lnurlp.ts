@@ -1,16 +1,19 @@
 import { showError } from './show.ts'
-import { curl, rot } from './utils.ts'
+import { curl } from './utils.ts'
 
-export const getInvoice = async (amount: number): Promise<string> => {
+export const getInvoice = async (address: string, amount: number): Promise<string> => {
   try {
-    if (!amount) throw `amount is required!`
-    let data: {
+    if (!address) throw 'address is required'
+    if (!amount) throw 'amount is required!'
+    if (address.split('@').length !== 2) throw 'invalid address'
+    const [user, host] = address.split('@')
+    const data: {
       tag: string
       minSendable: number
       maxSendable: number
       callback: string
       pr: string
-    } = await curl(rot('iuuqt;00dpjopt/jp0/xfmm.lopxo0movsmq0cpsebmjy'))
+    } = await curl(`https://${host}/.well-known/lnurlp/${user}`)
     if (data.tag !== 'payRequest') throw 'host unable to make lightning invoice'
     if (data.minSendable > amount * 1000) throw 'amount too low'
     if (data.maxSendable < amount * 1000) throw 'amount too high'

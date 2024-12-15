@@ -6,7 +6,7 @@ export function showError(error: unknown) {
   console.error('An error occurred:', error)
 }
 
-export function showHidden() {
+export function showHiddenContent() {
   document.querySelector<HTMLDivElement>('#qrcode')!.innerHTML = ''
   document.querySelector<HTMLDivElement>('#hidden')!.innerHTML = `
     <p>repo at <a href="${rot('iuuqt;00hjuivc/dpn0cpsebmjy0qbzxbmmz')}">github</a></p>
@@ -17,10 +17,7 @@ export function showPaymentInfo(invoice: string) {
   const color = '#000'
   document.querySelector<HTMLButtonElement>('#pay')!.style.display = 'none'
   document.querySelector<HTMLDivElement>('#qrcode')!.innerHTML = `
-    <button id="mock">Paid</button>
-    <p id="expiry" />
     <qr-code 
-      id="qr1"
       contents="${invoice}"
       module-color="${color}"
       position-ring-color="${color}"
@@ -34,6 +31,5 @@ export function showPaymentInfo(invoice: string) {
     ></qr-code>
     <p style="word-wrap: break-word">${invoice}</p>
   `
-  document.querySelector<HTMLButtonElement>('#mock')!.addEventListener('click', showHidden)
   console.log('invoice', invoice)
 }
