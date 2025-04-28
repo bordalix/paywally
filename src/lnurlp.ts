@@ -12,14 +12,12 @@ export const getInvoice = async (address: string, amount: number): Promise<strin
       minSendable: number
       maxSendable: number
       callback: string
-      pr: string
     } = await curl(`https://${host}/.well-known/lnurlp/${user}`)
     if (data.tag !== 'payRequest') throw 'host unable to make lightning invoice'
+    if (!data.callback) throw 'callback url not present in response'
     if (data.minSendable > amount * 1000) throw 'amount too low'
     if (data.maxSendable < amount * 1000) throw 'amount too high'
-    const response = await fetch(`${data.callback}?amount=${amount * 1000}`)
-    if (!response.ok) throw 'unable to reach host'
-    const json = await response.json()
+    const json: { pr: string } = await curl(`${data.callback}?amount=${amount * 1000}`)
     if (!json.pr) throw 'unable to get invoice'
     return json.pr
   } catch (err) {
