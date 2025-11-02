@@ -85,8 +85,12 @@ export class Paywally {
   async waitForPayment(): Promise<boolean> {
     if (!this.meltQuote) throw 'meltQuote not present'
     if (!this.mintQuote) throw 'mintQuote not present'
+    const maxAttempts = 60 // 5 minutes with 5-second intervals
+    let attempts = 0
     // wait for invoice to be paid
     while (true) {
+      if (attempts >= maxAttempts) throw new Error('Payment timeout')
+      attempts++
       this.debug("checking quote's state")
       const mintQuote = await this.wallet.checkMintQuoteBolt11(this.mintQuote.quote)
       if (mintQuote.state === 'PAID') {
