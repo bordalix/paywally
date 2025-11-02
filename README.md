@@ -2,7 +2,7 @@
 
 A standalone web app that implements a lightning paywall: you need to pay 21 sats to unlock the hidden content.
 
-How it works:
+## How it works
 
 1. The app fetches a 19 sats invoice from bordalix@coinos.io
 2. Then it creates a melt quote with this invoice
@@ -19,6 +19,51 @@ How it works:
 
 It’s not perfect, the user can inspect the code and:
 
-- Change the value to pay to 3 sats
+- Change the payment value to 3 sats
 - Change bordalix@coinos.io to his own lnurl
 - Access the content in the code (is obfuscated, but is there)
+
+## Usage
+
+Assuming there are three user facing functions:
+
+```typescript
+const onInvoice = (invoice: string) => { ...show invoice to user... }
+const onPayment = (paid: boolean) => { ...unlock content to user... }
+const showError = (error: any) => { ...show thrown error to user... }
+```
+
+Paywally options:
+
+```typescript
+const options = {
+  npubkey: '62cef883863022a4f1d60d54857c9d729650702c9fe227b0988c0b6e36c4bcce',
+  nrelays: ['wss://relay.damus.io', 'wss://relay.primal.net'],
+  mintUrl: 'https://mint.coinos.io',
+  myLnurl: 'bordalix@coinos.io',
+  paySats: 21, // amount in sats
+  withLog: true,
+}
+```
+
+Using callbacks:
+
+```typescript
+try {
+  Paywally.create(options, onInvoice, onPayment)
+} catch (error) {
+  showError(error)
+}
+```
+
+Using async functions:
+
+```typescript
+try {
+  const paywally = Paywally.create(options)
+  onInvoice(await paywally.getInvoice())
+  onPayment(await paywally.waitForPayment())
+} catch (error) {
+  showError(error)
+}
+```

@@ -1,62 +1,31 @@
-import './style.css'
-import { getInvoice } from './lnurlp.ts'
 import { showPaymentInfo, showError, showHiddenContent } from './show.ts'
-import { Wallet, getEncodedTokenV4, MintQuoteState } from '@cashu/cashu-ts'
-import { sendViaNostr } from './nostr.ts'
+import { Paywally, PaywallyOptions } from './paywally.ts'
+import './style.css'
 
-const mintUrl = 'https://mint.coinos.io'
-const myLnurl = 'bordalix@coinos.io'
-const paySats = 21 // amount to be paid in sats
 const pButton = document.querySelector<HTMLButtonElement>('#pay button')!
-const npubkey = '62cef883863022a4f1d60d54857c9d729650702c9fe227b0988c0b6e36c4bcce'
+
+const options: PaywallyOptions = {
+  npubkey: '62cef883863022a4f1d60d54857c9d729650702c9fe227b0988c0b6e36c4bcce',
+  nrelays: ['wss://relay.damus.io', 'wss://relay.primal.net'],
+  mintUrl: 'https://mint.coinos.io',
+  myLnurl: 'bordalix@coinos.io',
+  paySats: 21, // amount in sats
+  withLog: true,
+}
 
 async function pay() {
   try {
+    // disable button
     pButton.disabled = true
     pButton.innerText = 'Loading...'
-    // initialize cashu wallet
-    let mintQuoteState: MintQuoteState
-    const wallet = new Wallet(mintUrl)
-    await wallet.loadMint()
-    // get final invoice
-    const invoice = await getInvoice(myLnurl, paySats - 2)
-    if (!invoice) throw "unable to get owner's invoice"
-    // create melt quote
-    const meltQuote = await wallet.createMeltQuoteBolt11(invoice)
-    console.log('meltQuote', meltQuote)
-    // calculate amount to send
-    const amountToSend = meltQuote.amount + meltQuote.fee_reserve
-    console.log('amount to send', amountToSend)
-    // create mint quote
-    const mintQuote = await wallet.createMintQuoteBolt11(amountToSend)
-    console.log('mintQuote', mintQuote)
-    // show invoice to user in text and qrcode
-    showPaymentInfo(mintQuote.request)
-    // wait for invoice to be paid
-    while (true) {
-      console.log("checking quote's state")
-      mintQuoteState = (await wallet.checkMintQuoteBolt11(mintQuote.quote)).state
-      if (mintQuoteState === 'PAID') break
-      await new Promise((res) => setTimeout(res, 5000))
-    }
-    // if paid, mint proofs and use them to pay original invoice
-    if (mintQuoteState === 'PAID') {
-      const proofs = await wallet.mintProofsBolt11(paySats, mintQuote.quote)
-      const { send } = await wallet.send(amountToSend, proofs)
-      const meltResponse = await wallet.meltProofsBolt11(meltQuote, send)
-      console.log('meltResponse', meltResponse)
-      // unlock content
-      showHiddenContent()
-      // send change token via Nostr
-      sendViaNostr(
-        npubkey,
-        getEncodedTokenV4({
-          proofs: meltResponse.change,
-          mint: mintUrl,
-          memo: 'paywally',
-        })
-      )
-    }
+
+    // using callbacks
+    Paywally.create(options, showPaymentInfo, showHiddenContent)
+
+    // using async/await
+    // const paywally = await Paywally.create(options)
+    // showPaymentInfo(await paywally.getInvoice())
+    // showHiddenContent(await paywally.waitForPayment())
   } catch (error) {
     showError(error)
     pButton.disabled = false
