@@ -182,6 +182,17 @@ export class Paywally {
       pubkey: pk,
     }
     const signedEvent = finalizeEvent(event, sk)
-    pool.publish(this.options.nrelays, signedEvent)
+    try {
+      await Promise.race([
+        pool.publish(this.options.nrelays, signedEvent),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 10000)),
+      ])
+      this.debug('Message published to Nostr successfully')
+    } catch (error) {
+      this.debug('Failed to publish to Nostr:', error)
+      throw error
+    } finally {
+      pool.close(this.options.nrelays)
+    }
   }
 }
