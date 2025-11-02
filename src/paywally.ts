@@ -102,7 +102,7 @@ export class Paywally {
         const meltResponse = await this.wallet.meltProofsBolt11(this.meltQuote, send)
         this.debug('meltResponse', meltResponse)
         // send change token via Nostr
-        this.sendViaNostr(
+        await this.sendViaNostr(
           getEncodedTokenV4({
             proofs: meltResponse.change,
             mint: this.options.mintUrl,
@@ -123,7 +123,7 @@ export class Paywally {
    * @param url the URL to request
    * @returns the response JSON
    */
-  private async curl(url: string) {
+  private async curl(url: string): Promise<any> {
     const response = await fetch(url)
     if (!response.ok) throw `Unable to reach ${url}`
     return await response.json()
@@ -133,7 +133,7 @@ export class Paywally {
    * Log debug information
    * @param args debug information
    */
-  private debug(...args: unknown[]) {
+  private debug(...args: unknown[]): void {
     if (this.options.withLog) {
       console.log('Debug info:', ...args)
     }
@@ -170,7 +170,7 @@ export class Paywally {
    * @param toPub recipient's public key
    * @param message message to send
    */
-  private async sendViaNostr(message: string) {
+  private async sendViaNostr(message: string): Promise<void> {
     const pool = new SimplePool()
     const sk = generateSecretKey()
     const pk = getPublicKey(sk)
