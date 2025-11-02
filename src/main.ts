@@ -1,7 +1,7 @@
 import './style.css'
 import { getInvoice } from './lnurlp.ts'
 import { showPaymentInfo, showError, showHiddenContent } from './show.ts'
-import { CashuMint, CashuWallet, getEncodedTokenV4, MintQuoteState } from '@cashu/cashu-ts'
+import { Wallet, getEncodedTokenV4, MintQuoteState } from '@cashu/cashu-ts'
 import { sendViaNostr } from './nostr.ts'
 
 const mintUrl = 'https://mint.coinos.io'
@@ -16,34 +16,34 @@ async function pay() {
     pButton.innerText = 'Loading...'
     // initialize cashu wallet
     let mintQuoteState: MintQuoteState
-    const wallet = new CashuWallet(new CashuMint(mintUrl))
+    const wallet = new Wallet(mintUrl)
     await wallet.loadMint()
     // get final invoice
     const invoice = await getInvoice(myLnurl, paySats - 2)
     if (!invoice) throw "unable to get owner's invoice"
     // create melt quote
-    const meltQuote = await wallet.createMeltQuote(invoice)
+    const meltQuote = await wallet.createMeltQuoteBolt11(invoice)
     console.log('meltQuote', meltQuote)
     // calculate amount to send
     const amountToSend = meltQuote.amount + meltQuote.fee_reserve
     console.log('amount to send', amountToSend)
     // create mint quote
-    const mintQuote = await wallet.createMintQuote(amountToSend)
+    const mintQuote = await wallet.createMintQuoteBolt11(amountToSend)
     console.log('mintQuote', mintQuote)
     // show invoice to user in text and qrcode
     showPaymentInfo(mintQuote.request)
     // wait for invoice to be paid
     while (true) {
       console.log("checking quote's state")
-      mintQuoteState = (await wallet.checkMintQuote(mintQuote.quote)).state
+      mintQuoteState = (await wallet.checkMintQuoteBolt11(mintQuote.quote)).state
       if (mintQuoteState === 'PAID') break
       await new Promise((res) => setTimeout(res, 5000))
     }
     // if paid, mint proofs and use them to pay original invoice
     if (mintQuoteState === 'PAID') {
-      const proofs = await wallet.mintProofs(paySats, mintQuote.quote)
+      const proofs = await wallet.mintProofsBolt11(paySats, mintQuote.quote)
       const { send } = await wallet.send(amountToSend, proofs)
-      const meltResponse = await wallet.meltProofs(meltQuote, send)
+      const meltResponse = await wallet.meltProofsBolt11(meltQuote, send)
       console.log('meltResponse', meltResponse)
       // unlock content
       showHiddenContent()

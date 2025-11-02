@@ -13,7 +13,7 @@
     "vite": "^6.0.1"
   },
   "dependencies": {
-    "@cashu/cashu-ts": "^2.1.0",
+    "@cashu/cashu-ts": "^3.0.2",
     "nostr-tools": "^2.10.4"
   },
   "packageManager": "yarn@1.22.22"
