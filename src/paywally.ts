@@ -1,12 +1,12 @@
-import { showError } from './show'
 import { EncryptedDirectMessage } from 'nostr-tools/kinds'
-import { getEncodedTokenV4, MeltQuoteResponse, MintQuoteResponse, Wallet } from '@cashu/cashu-ts'
-import { finalizeEvent, generateSecretKey, getPublicKey, nip04, SimplePool, UnsignedEvent } from 'nostr-tools'
+import { getEncodedTokenV4, type MeltQuoteResponse, type MintQuoteResponse, Wallet } from '@cashu/cashu-ts'
+import { finalizeEvent, generateSecretKey, getPublicKey, nip04, SimplePool, type UnsignedEvent } from 'nostr-tools'
 
 export interface PaywallyOptions {
   npubkey: string
   mintUrl: string
   myLnurl: string
+  payFees: number
   paySats: number
   withLog: boolean
   nrelays: string[]
@@ -129,7 +129,7 @@ export class Paywally {
    * Log debug information
    * @param args debug information
    */
-  private debug(...args: any[]) {
+  private debug(...args: unknown[]) {
     if (this.options.withLog) {
       console.log('Debug info:', ...args)
     }
@@ -140,30 +140,25 @@ export class Paywally {
    * @returns receiver's invoice (string)
    */
   private async getReceiverInvoice(): Promise<string> {
-    const { myLnurl, paySats } = this.options
-    const amount = paySats! - 2 // deduct fee reserve
-    try {
-      if (!myLnurl) throw 'myLnurl is required'
-      if (!amount) throw 'amount is required'
-      if (myLnurl.split('@').length !== 2) throw 'invalid address'
-      const [user, host] = myLnurl.split('@')
-      const data: {
-        tag: string
-        minSendable: number
-        maxSendable: number
-        callback: string
-      } = await this.curl(`https://${host}/.well-known/lnurlp/${user}`)
-      if (data.tag !== 'payRequest') throw 'host unable to make lightning invoice'
-      if (!data.callback) throw 'callback url not present in response'
-      if (data.minSendable > amount * 1000) throw 'amount too low'
-      if (data.maxSendable < amount * 1000) throw 'amount too high'
-      const json: { pr: string } = await this.curl(`${data.callback}?amount=${amount * 1000}`)
-      if (!json.pr) throw 'unable to get invoice'
-      return json.pr
-    } catch (err) {
-      showError(err)
-      return ''
-    }
+    const { myLnurl, paySats, payFees } = this.options
+    const amount = paySats - payFees // deduct fee reserve
+    if (!myLnurl) throw 'myLnurl is required'
+    if (!amount) throw 'amount is required'
+    if (myLnurl.split('@').length !== 2) throw 'invalid address'
+    const [user, host] = myLnurl.split('@')
+    const data: {
+      tag: string
+      minSendable: number
+      maxSendable: number
+      callback: string
+    } = await this.curl(`https://${host}/.well-known/lnurlp/${user}`)
+    if (data.tag !== 'payRequest') throw 'host unable to make lightning invoice'
+    if (!data.callback) throw 'callback url not present in response'
+    if (data.minSendable > amount * 1000) throw 'amount too low'
+    if (data.maxSendable < amount * 1000) throw 'amount too high'
+    const json: { pr: string } = await this.curl(`${data.callback}?amount=${amount * 1000}`)
+    if (!json.pr) throw 'unable to get invoice'
+    return json.pr
   }
 
   /**
@@ -178,7 +173,7 @@ export class Paywally {
     const event: UnsignedEvent = {
       kind: EncryptedDirectMessage,
       tags: [['p', this.options.npubkey]],
-      content: await nip04.encrypt(sk, this.options.npubkey, message),
+      content: nip04.encrypt(sk, this.options.npubkey, message),
       created_at: Math.floor(Date.now() / 1000),
       pubkey: pk,
     }

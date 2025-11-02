@@ -10,6 +10,7 @@ const options: PaywallyOptions = {
   mintUrl: 'https://mint.coinos.io',
   myLnurl: 'bordalix@coinos.io',
   paySats: 21, // amount in sats
+  payFees: 2, // fees in sats
   withLog: true,
 }
 
