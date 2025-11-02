@@ -123,7 +123,7 @@ export class Paywally {
    * @param url the URL to request
    * @returns the response JSON
    */
-  private async curl(url: string): Promise<any> {
+  private async curl(url: string): Promise<unknown> {
     const response = await fetch(url)
     if (!response.ok) throw `Unable to reach ${url}`
     return await response.json()
@@ -150,17 +150,17 @@ export class Paywally {
     if (!amount) throw 'amount is required'
     if (myLnurl.split('@').length !== 2) throw 'invalid address'
     const [user, host] = myLnurl.split('@')
-    const data: {
+    const data = (await this.curl(`https://${host}/.well-known/lnurlp/${user}`)) as {
       tag: string
       minSendable: number
       maxSendable: number
       callback: string
-    } = await this.curl(`https://${host}/.well-known/lnurlp/${user}`)
+    }
     if (data.tag !== 'payRequest') throw 'host unable to make lightning invoice'
     if (!data.callback) throw 'callback url not present in response'
     if (data.minSendable > amount * 1000) throw 'amount too low'
     if (data.maxSendable < amount * 1000) throw 'amount too high'
-    const json: { pr: string } = await this.curl(`${data.callback}?amount=${amount * 1000}`)
+    const json = (await this.curl(`${data.callback}?amount=${amount * 1000}`)) as { pr: string }
     if (!json.pr) throw 'unable to get invoice'
     return json.pr
   }
