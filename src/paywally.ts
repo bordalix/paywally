@@ -12,6 +12,9 @@ export interface PaywallyOptions {
   nrelays: string[]
 }
 
+/**
+ * Paywally class to handle payment and change token sending via Nostr
+ */
 export class Paywally {
   readonly wallet: Wallet
   readonly options: PaywallyOptions
@@ -42,6 +45,41 @@ export class Paywally {
 
   /**
    * Create a Paywally instance
+   *
+   * @example
+   *
+   * const onInvoice = (invoice: string) => { ...show invoice to user... }
+   * const onPayment = (paid: boolean) => { ...unlock content to user... }
+   * const showError = (error: any) => { ...show thrown error to user... }
+   *
+   * // options for Paywally
+   * const options: PaywallyOptions = {
+   *   npubkey: '62cef883863022a4f1d60d54857c9d729650702c9fe227b0988c0b6e36c4bcce',
+   *   nrelays: ['wss://relay.damus.io', 'wss://relay.primal.net'],
+   *   mintUrl: 'https://mint.coinos.io',
+   *   myLnurl: 'bordalix@coinos.io',
+   *   paySats: 21, // amount in sats
+   *   payFees: 2, // fees in sats
+   *   withLog: true,
+   * }
+   *
+   * // using callbacks
+   * try {
+   *   Paywally.create(options, onInvoice, onPayment)
+   * } catch (error) {
+   *  showError(error)
+   * }
+   *
+   * // using async/await
+   * try {
+   *   const paywally = await Paywally.create(options)
+   *   onInvoice(await paywally.getInvoice())
+   *   onPayment(await paywally.waitForPayment())
+   * } catch (error) {
+   *   showError(error)
+   * }
+   *
+   * @param options required
    * @param myOptions optional
    * @param onInvoice optional
    * @param onPayment optional
