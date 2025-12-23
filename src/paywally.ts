@@ -1,5 +1,5 @@
 import { EncryptedDirectMessage } from 'nostr-tools/kinds'
-import { getEncodedTokenV4, type MeltQuoteResponse, type MintQuoteResponse, Wallet } from '@cashu/cashu-ts'
+import { getEncodedTokenV4, type MeltQuoteBolt11Response, type MintQuoteBolt11Response, Wallet } from '@cashu/cashu-ts'
 import { finalizeEvent, generateSecretKey, getPublicKey, nip04, SimplePool, type UnsignedEvent } from 'nostr-tools'
 
 export interface PaywallyOptions {
@@ -20,8 +20,8 @@ export class Paywally {
   readonly options: PaywallyOptions
 
   amountToSend: number = 0
-  meltQuote: MeltQuoteResponse | null = null
-  mintQuote: MintQuoteResponse | null = null
+  meltQuote: MeltQuoteBolt11Response | null = null
+  mintQuote: MintQuoteBolt11Response | null = null
 
   private constructor(
     wallet: Wallet,
