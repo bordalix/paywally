@@ -8,11 +8,25 @@ import {
 } from '@cashu/cashu-ts'
 import { finalizeEvent, generateSecretKey, getPublicKey, nip04, SimplePool, type UnsignedEvent } from 'nostr-tools'
 
+const maxAttempts = 60
+const delayBetweenAttemptsMs = 5000
+
+interface LnurlpResponse {
+  tag: string
+  minSendable: number
+  maxSendable: number
+  callback: string
+}
+
+interface InvoiceResponse {
+  pr: string
+}
+
 export interface PaywallyOptions {
   npubkey: string
   mintUrl: string
   myLnurl: string
-  payFees: number
+  feeSats: number
   paySats: number
   withLog: boolean
   nrelays: string[]
@@ -65,7 +79,7 @@ export class Paywally {
    *   mintUrl: 'https://mint.coinos.io',
    *   myLnurl: 'bordalix@coinos.io',
    *   paySats: 21, // amount in sats
-   *   payFees: 2, // fees in sats
+   *   feeSats: 2, // fees in sats
    *   withLog: true,
    * }
    *
@@ -86,7 +100,6 @@ export class Paywally {
    * }
    *
    * @param options required
-   * @param myOptions optional
    * @param onInvoice optional
    * @param onPayment optional
    * @returns Paywally instance
@@ -96,6 +109,34 @@ export class Paywally {
     onInvoice?: (invoice: string) => void,
     onPayment?: (paid: boolean) => void
   ): Promise<Paywally> {
+    // validate options
+    if (!options.npubkey) throw new Error('npubkey is required')
+    if (!options.nrelays) throw new Error('nrelays is required')
+    if (!options.mintUrl) throw new Error('mintUrl is required')
+    if (!options.myLnurl) throw new Error('myLnurl is required')
+    if (!options.paySats) throw new Error('paySats is required')
+    if (!options.feeSats) throw new Error('feeSats is required')
+
+    // test npubkey length
+    if (options.npubkey.length !== 64) throw new Error('invalid npubkey')
+
+    // test nrelays array
+    if (!Array.isArray(options.nrelays) || options.nrelays.length === 0) {
+      throw new Error('nrelays must be a non-empty array of relay URLs')
+    }
+
+    // test myLnurl format is a lnurlp (user@host)
+    const lnurlParts = options.myLnurl.split('@')
+    if (lnurlParts.length !== 2 || !lnurlParts[0] || !lnurlParts[1]) {
+      throw new Error('myLnurl must be in the format user@host')
+    }
+
+    // test paySats and feeSats
+    if (options.paySats <= 0) throw new Error('paySats must be greater than 0')
+    if (options.feeSats < 0) throw new Error('feeSats must be 0 or greater')
+    if (options.feeSats >= options.paySats) throw new Error('feeSats must be less than paySats')
+
+    // create wallet
     const wallet = new Wallet(options.mintUrl)
     await wallet.loadMint() // wallet is now ready to use
     return new Paywally(wallet, options, onInvoice, onPayment)
@@ -129,7 +170,6 @@ export class Paywally {
   async waitForPayment(): Promise<boolean> {
     if (!this.meltQuote) throw new Error('meltQuote not present')
     if (!this.mintQuote) throw new Error('mintQuote not present')
-    const maxAttempts = 60 // 5 minutes with 5-second intervals
     let attempts = 0
     // wait for invoice to be paid
     while (true) {
@@ -156,7 +196,7 @@ export class Paywally {
         this.debug('payment successful, change sent via Nostr')
         return true
       }
-      await new Promise((res) => setTimeout(res, 5000))
+      await new Promise((res) => setTimeout(res, delayBetweenAttemptsMs))
     }
   }
 
@@ -167,7 +207,7 @@ export class Paywally {
    * @param url the URL to request
    * @returns the response JSON
    */
-  private async curl(url: string): Promise<unknown> {
+  private async curl<T>(url: string): Promise<T> {
     const response = await fetch(url)
     if (!response.ok) throw new Error(`Unable to reach ${url}`)
     return await response.json()
@@ -188,23 +228,17 @@ export class Paywally {
    * @returns receiver's invoice (string)
    */
   private async getReceiverInvoice(): Promise<string> {
-    const { myLnurl, paySats, payFees } = this.options
-    const amount = paySats - payFees // deduct fee reserve
+    const { myLnurl, paySats, feeSats } = this.options
+    const amount = paySats - feeSats // deduct fee reserve
     if (!myLnurl) throw new Error('myLnurl is required')
     if (!amount) throw new Error('amount is required')
-    if (myLnurl.split('@').length !== 2) throw new Error('invalid address')
     const [user, host] = myLnurl.split('@')
-    const data = (await this.curl(`https://${host}/.well-known/lnurlp/${user}`)) as {
-      tag: string
-      minSendable: number
-      maxSendable: number
-      callback: string
-    }
+    const data = await this.curl<LnurlpResponse>(`https://${host}/.well-known/lnurlp/${user}`)
     if (data.tag !== 'payRequest') throw new Error('host unable to make lightning invoice')
     if (!data.callback) throw new Error('callback url not present in response')
     if (data.minSendable > amount * 1000) throw new Error('amount too low')
     if (data.maxSendable < amount * 1000) throw new Error('amount too high')
-    const json = (await this.curl(`${data.callback}?amount=${amount * 1000}`)) as { pr: string }
+    const json = await this.curl<InvoiceResponse>(`${data.callback}?amount=${amount * 1000}`)
     if (!json.pr) throw new Error('unable to get invoice')
     return json.pr
   }
