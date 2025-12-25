@@ -1,5 +1,11 @@
 import { EncryptedDirectMessage } from 'nostr-tools/kinds'
-import { getEncodedTokenV4, type MeltQuoteBolt11Response, type MintQuoteBolt11Response, Wallet } from '@cashu/cashu-ts'
+import {
+  getEncodedTokenV4,
+  type MeltQuoteBolt11Response,
+  type MintQuoteBolt11Response,
+  MintQuoteState,
+  Wallet,
+} from '@cashu/cashu-ts'
 import { finalizeEvent, generateSecretKey, getPublicKey, nip04, SimplePool, type UnsignedEvent } from 'nostr-tools'
 
 export interface PaywallyOptions {
@@ -101,7 +107,7 @@ export class Paywally {
    */
   async getInvoice(): Promise<string> {
     const invoice = await this.getReceiverInvoice()
-    if (!invoice) throw "unable to get receiver's invoice"
+    if (!invoice) throw new Error("unable to get receiver's invoice")
     // create melt quote
     this.meltQuote = await this.wallet.createMeltQuoteBolt11(invoice)
     this.debug('meltQuote', this.meltQuote)
@@ -121,8 +127,8 @@ export class Paywally {
    * @returns if payment was made (boolean)
    */
   async waitForPayment(): Promise<boolean> {
-    if (!this.meltQuote) throw 'meltQuote not present'
-    if (!this.mintQuote) throw 'mintQuote not present'
+    if (!this.meltQuote) throw new Error('meltQuote not present')
+    if (!this.mintQuote) throw new Error('mintQuote not present')
     const maxAttempts = 60 // 5 minutes with 5-second intervals
     let attempts = 0
     // wait for invoice to be paid
@@ -131,7 +137,7 @@ export class Paywally {
       attempts++
       this.debug("checking quote's state")
       const mintQuote = await this.wallet.checkMintQuoteBolt11(this.mintQuote.quote)
-      if (mintQuote.state === 'PAID') {
+      if (mintQuote.state === MintQuoteState.PAID) {
         // if paid, mint proofs and use them to pay original invoice
         const proofs = await this.wallet.mintProofsBolt11(this.options.paySats, this.mintQuote.quote)
         this.debug('proofs', proofs)
@@ -163,7 +169,7 @@ export class Paywally {
    */
   private async curl(url: string): Promise<unknown> {
     const response = await fetch(url)
-    if (!response.ok) throw `Unable to reach ${url}`
+    if (!response.ok) throw new Error(`Unable to reach ${url}`)
     return await response.json()
   }
 
@@ -184,9 +190,9 @@ export class Paywally {
   private async getReceiverInvoice(): Promise<string> {
     const { myLnurl, paySats, payFees } = this.options
     const amount = paySats - payFees // deduct fee reserve
-    if (!myLnurl) throw 'myLnurl is required'
-    if (!amount) throw 'amount is required'
-    if (myLnurl.split('@').length !== 2) throw 'invalid address'
+    if (!myLnurl) throw new Error('myLnurl is required')
+    if (!amount) throw new Error('amount is required')
+    if (myLnurl.split('@').length !== 2) throw new Error('invalid address')
     const [user, host] = myLnurl.split('@')
     const data = (await this.curl(`https://${host}/.well-known/lnurlp/${user}`)) as {
       tag: string
@@ -194,12 +200,12 @@ export class Paywally {
       maxSendable: number
       callback: string
     }
-    if (data.tag !== 'payRequest') throw 'host unable to make lightning invoice'
-    if (!data.callback) throw 'callback url not present in response'
-    if (data.minSendable > amount * 1000) throw 'amount too low'
-    if (data.maxSendable < amount * 1000) throw 'amount too high'
+    if (data.tag !== 'payRequest') throw new Error('host unable to make lightning invoice')
+    if (!data.callback) throw new Error('callback url not present in response')
+    if (data.minSendable > amount * 1000) throw new Error('amount too low')
+    if (data.maxSendable < amount * 1000) throw new Error('amount too high')
     const json = (await this.curl(`${data.callback}?amount=${amount * 1000}`)) as { pr: string }
-    if (!json.pr) throw 'unable to get invoice'
+    if (!json.pr) throw new Error('unable to get invoice')
     return json.pr
   }
 
