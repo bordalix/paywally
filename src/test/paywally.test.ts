@@ -9,7 +9,7 @@ const options = {
   mintUrl: 'https://mint.coinos.io',
   myLnurl: 'bordalix@coinos.io',
   paySats: 21, // amount in sats
-  feeSats: 2, // fees in sats
+  feeSats: 3, // fees in sats
   withLog: true,
 }
 
@@ -44,7 +44,9 @@ describe('create', () => {
 
   it('should throw error for invalid paySats', async () => {
     await expect(Paywally.create({ ...options, paySats: 0 })).rejects.toThrow()
-    await expect(Paywally.create({ ...options, paySats: 1 })).rejects.toThrow('feeSats must be less than paySats')
+    await expect(Paywally.create({ ...options, paySats: 1 })).rejects.toThrow()
+    await expect(Paywally.create({ ...options, paySats: 2 })).rejects.toThrow()
+    await expect(Paywally.create({ ...options, paySats: 3 })).rejects.toThrow()
     await expect(Paywally.create({ ...options, paySats: -1 })).rejects.toThrow()
   })
 
@@ -55,6 +57,7 @@ describe('create', () => {
 
   it('should throw error if paySats is less than or equal to feeSats', async () => {
     await expect(Paywally.create({ ...options, feeSats: 21 })).rejects.toThrow()
+    await expect(Paywally.create({ ...options, paySats: 3 })).rejects.toThrow()
     await expect(Paywally.create({ ...options, paySats: 2 })).rejects.toThrow()
     await expect(Paywally.create({ ...options, paySats: 1 })).rejects.toThrow()
     await expect(Paywally.create({ ...options, paySats: 0 })).rejects.toThrow()
@@ -66,6 +69,6 @@ describe('getInvoice', () => {
     const paywally = await Paywally.create(options)
     const invoice = await paywally.getInvoice()
     const amount = decode(invoice).sections.find((s) => s.name === 'amount')?.value
-    expect(Number(amount)).toBe(21000) // 21,000 msats = 21 sats (19 + 2 fee)
+    expect(Number(amount)).toBe(options.paySats * 1000) // in msats
   })
 })
