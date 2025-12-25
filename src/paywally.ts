@@ -39,7 +39,6 @@ export class Paywally {
   readonly wallet: Wallet
   readonly options: PaywallyOptions
 
-  amountToSend: number = 0
   meltQuote: MeltQuoteBolt11Response | null = null
   mintQuote: MintQuoteBolt11Response | null = null
 
@@ -54,9 +53,7 @@ export class Paywally {
     this.wallet = wallet
 
     const handleError = (error: unknown) => {
-      if (onError) {
-        onError(error instanceof Error ? error.message : String(error))
-      }
+      if (onError) onError(error instanceof Error ? error.message : String(error))
     }
 
     if (onInvoice) {
@@ -76,7 +73,7 @@ export class Paywally {
    *
    * const onInvoice = (invoice: string) => { ...show invoice to user... }
    * const onPayment = (paid: boolean) => { ...unlock content to user... }
-   * const onError = (error: Error) => { ...show error to user... }
+   * const onError = (error: string) => { ...show throw error to user... }
    *
    * // options for Paywally
    * const options: PaywallyOptions = {
@@ -84,8 +81,8 @@ export class Paywally {
    *   nrelays: ['wss://relay.damus.io', 'wss://relay.primal.net'],
    *   mintUrl: 'https://mint.coinos.io',
    *   myLnurl: 'bordalix@coinos.io',
-   *   paySats: 21, // amount in sats
-   *   feeSats: 3, // fees in sats
+   *   paySats: 21, // consumer facing amount in sats
+   *   feeSats: 3, // reserved network fees in sats
    *   withLog: true,
    * }
    *
@@ -166,12 +163,8 @@ export class Paywally {
       throw new Error('Not enough fees reserved to cover network fees')
     }
 
-    // calculate amount to send (amount + actual fee reserve)
-    this.amountToSend = this.meltQuote.amount + this.meltQuote.fee_reserve
-    this.debug('amount to send', this.amountToSend)
-
     // create mint quote
-    this.mintQuote = await this.wallet.createMintQuoteBolt11(this.amountToSend)
+    this.mintQuote = await this.wallet.createMintQuoteBolt11(this.options.paySats)
     this.debug('mintQuote', this.mintQuote)
 
     // return invoice to be paid by user
@@ -187,9 +180,8 @@ export class Paywally {
     // validate quotes
     if (!this.meltQuote) throw new Error('meltQuote not present in waitForPayment')
     if (!this.mintQuote) throw new Error('mintQuote not present in waitForPayment')
-
+    // initialize attempts counter
     let attempts = 0
-
     // wait for invoice to be paid
     while (true) {
       if (attempts >= maxAttempts) throw new Error('Payment timeout')
@@ -198,17 +190,17 @@ export class Paywally {
       const mintQuote = await this.wallet.checkMintQuoteBolt11(this.mintQuote.quote)
       if (mintQuote.state === MintQuoteState.PAID) {
         // if paid, mint proofs and use them to pay original invoice
-        const proofs = await this.wallet.mintProofsBolt11(this.amountToSend, this.mintQuote.quote)
+        const proofs = await this.wallet.mintProofsBolt11(this.options.paySats, this.mintQuote.quote)
         this.debug('proofs', proofs)
         // coin selection and swap with server to prevent double spending
-        const { send: proofsToSend } = await this.wallet.send(this.amountToSend, proofs)
+        const { keep: proofsToKeep, send: proofsToSend } = await this.wallet.send(this.options.paySats, proofs)
         // melt proofs to access change token
         const meltResponse = await this.wallet.meltProofsBolt11(this.meltQuote, proofsToSend)
         this.debug('meltResponse', meltResponse)
         // send change token via Nostr
         await this.sendViaNostr(
           getEncodedTokenV4({
-            proofs: meltResponse.change,
+            proofs: [...meltResponse.change, ...proofsToKeep],
             mint: this.options.mintUrl,
             memo: 'paywally',
           })
@@ -248,9 +240,8 @@ export class Paywally {
    * @returns receiver's invoice (string)
    */
   private async getReceiverInvoice(): Promise<string> {
-    const { myLnurl, paySats, feeSats } = this.options
-    const amount = paySats - feeSats
-    const [user, host] = myLnurl.split('@')
+    const amount = this.options.paySats - this.options.feeSats
+    const [user, host] = this.options.myLnurl.split('@')
     const data = await this.curl<LnurlpResponse>(`https://${host}/.well-known/lnurlp/${user}`)
     if (data.tag !== 'payRequest') throw new Error('Host unable to make lightning invoice')
     if (!data.callback) throw new Error('Callback url not present in response')
